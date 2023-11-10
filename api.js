@@ -1,42 +1,39 @@
-//Require Express framework
+// Require Express framework
 const express = require("express");
-//Required for downloading PDF file and extracting contents of it
+// Required for downloading PDF file and extracting contents
 const PDFParser = require("pdf-parse");
-const uuid = require("uuid");
+// Required for requesting PDF files from other server
 const axios = require("axios");
-const fs = require("fs");
 // Required for connecting mysql databases
 const mysql = require("mysql2");
-//not used yet
-const multer = require("multer");
-const bodyParser = require("body-parser");
-const { log } = require("console");
+
 require("dotenv").config();
 
+// Host on local port 3001
 const app = express();
 const PORT = 3001;
 
-//info of DB to connect
+// Database connection info
 const conn = {
   host: process.env.DB_HOST,
-  port: "3306",
+  port: process.env.DB_PORT,
   user: process.env.DB_USER,
-  password: process.env.DB_PW,
+  password: process.env.DB_PASS,
 };
 
-// download PDF file and extract contents
+// Download PDF file and extract contents
 async function extractPDFContent(pdfUrl) {
-  if (pdfUrl == null) {
-    return null;
-  }
+  if (pdfUrl == null) return null;
+
   try {
-    // download PDF
-    console.log("downloading");
-    console.log(pdfUrl);
+    // Download PDF
+    console.log("Downloading " + pdfUrl);
+
     const response = await axios.get(pdfUrl, { responseType: "arraybuffer" });
-    console.log("successfully downloaded");
+    console.log("Successfully downloaded");
     const pdfBuffer = Buffer.from(response.data, "binary");
-    // extaract PDF
+
+    // Extract PDF
     const data = await PDFParser(pdfBuffer);
 
     // Replace null with space
@@ -45,11 +42,10 @@ async function extractPDFContent(pdfUrl) {
     return result;
   } catch (error) {
     console.error("Error extracting PDF content:", error);
-    throw error;
   }
 }
 
-// Preprocessing each element
+// Preprocess each element
 async function regenerateData(obj) {
   obj.효능효과 = await extractPDFContent(obj.효능효과);
   obj.용법용량 = await extractPDFContent(obj.용법용량);
@@ -58,23 +54,7 @@ async function regenerateData(obj) {
   return obj;
 }
 
-// //each preprocessing
-// async function regenerateData(obj){
-
-//     let efficacy = extractPDFContent(obj.효능효과);
-//     let dosage = extractPDFContent(obj.용법용량);
-//     let precautions = extractPDFContent(obj.주의사항);
-
-//     await Promise.all([efficacy,dosage,precautions]).then(()=>{
-//         obj.효능효과 = efficacy;
-//         obj.용법용량 = dosage;
-//         obj.주의사항 = precautions;
-
-//         return obj;
-//     })
-// }
-
-// start the server
+// Start the server
 const server = app.listen(PORT, () => {
   console.log("start Server");
 });
@@ -88,8 +68,9 @@ app.get("/getItemList", async (req, res) => {
 
     let sql =
       "SELECT 품목일련번호, 품목명, 큰제품이미지, 업체명, 성상, 의약품제형 " +
-      "FROM pilltong_capstone.final_drug_full_info " +
+      "FROM pills.final_drug_full_info " +
       "WHERE 1";
+
     //Add to query if key has value
     if (queryParams.itemName) {
       sql += " AND 품목명 like ?";
@@ -121,8 +102,9 @@ app.get("/getItemDetail", async (req, res) => {
 
     let sql =
       "SELECT 품목일련번호, 품목명, 업체명, 전문일반, 성상, 원료성분, 효능효과, 용법용량, 주의사항, 저장방법, 유효기간,큰제품이미지, 표시앞, 표시뒤, 의약품제형, 색상앞, 색상뒤, 분할선앞, 분할선뒤, 크기장축, 크기단축, 크기두께, 제형코드명 " +
-      "FROM pilltong_capstone.final_drug_full_info " +
+      "FROM pills.final_drug_full_info " +
       "WHERE 1";
+
     //Add to query if key has value
     if (queryParams.itemNumber) {
       sql += " AND 품목일련번호 = ?";
@@ -137,7 +119,7 @@ app.get("/getItemDetail", async (req, res) => {
         throw err;
       }
 
-      // data preprocessing
+      // Preprocess data
       drugDetail = await regenerateData(results[0]);
       Promise.all([drugDetail]).then((value) => {
         res.send(JSON.stringify(drugDetail));
