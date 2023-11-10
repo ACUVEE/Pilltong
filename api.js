@@ -10,6 +10,7 @@ const mysql = require("mysql2");
 //not used yet
 const multer = require("multer");
 const bodyParser = require("body-parser");
+const { log } = require("console");
 require("dotenv").config();
 
 const app = express();
@@ -25,29 +26,27 @@ const conn = {
 
 // download PDF file and extract contents
 async function extractPDFContent(pdfUrl) {
-    if (pdfUrl == null){
-        return null;
-    }
-    try {
-        // download PDF
-        console.log('downloading');
-        console.log(pdfUrl);
-        const response = await axios.get(pdfUrl, { responseType: 'arraybuffer' });
-        console.log("successfully downloaded");
-        const pdfBuffer = Buffer.from(response.data, 'binary');
-        // extaract PDF
-        const data = await PDFParser(pdfBuffer);
+  if (pdfUrl == null) {
+    return null;
+  }
+  try {
+    // download PDF
+    console.log("downloading");
+    console.log(pdfUrl);
+    const response = await axios.get(pdfUrl, { responseType: "arraybuffer" });
+    console.log("successfully downloaded");
+    const pdfBuffer = Buffer.from(response.data, "binary");
+    // extaract PDF
+    const data = await PDFParser(pdfBuffer);
 
     // Replace null with space
     let result = data.text.replace(/\u0000/g, " ");
 
     return result;
-    } 
-
-    catch (error) {
+  } catch (error) {
     console.error("Error extracting PDF content:", error);
     throw error;
-    }
+  }
 }
 
 // Preprocessing each element
@@ -87,47 +86,31 @@ app.get("/getItemList", async (req, res) => {
     const queryParams = req.query;
     const values = [];
 
-
-
     let sql =
-    'SELECT 품목일련번호, 품목명, 큰제품이미지, 업체명, 성상, 의약품제형 ' + 
-    'FROM pilltong_capstone.final_drug_full_info '+
-    'WHERE 1';
+      "SELECT 품목일련번호, 품목명, 큰제품이미지, 업체명, 성상, 의약품제형 " +
+      "FROM pilltong_capstone.final_drug_full_info " +
+      "WHERE 1";
     //Add to query if key has value
-    if(queryParams.itemName){
-        sql+= ' AND 품목명 like ?';
-        values.push('%'+queryParams.itemName+'%');
+    if (queryParams.itemName) {
+      sql += " AND 품목명 like ?";
+      values.push("%" + queryParams.itemName + "%");
     }
 
-        //additional query
-        /*
-        if(){
-            sql += 'AND 키 = ?';
-            values.push(queryParams.쿼리키);
-        }
-    */
-
-    // execute query and data preprocessing
+    // Connect to database
     let connection = mysql.createConnection(conn);
-    connection.query(sql, values, async function (err, results, fields) {
+    connection.query(sql, values, async function (err, results) {
       if (err) {
         console.log(err);
         throw err;
       }
-
-      //data preprocessing
       let drugList = await JSON.stringify(results);
-
-        let sql = 
-        'SELECT 품목일련번호, 품목명, 업체명, 전문일반, 성상, 원료성분, 효능효과, 용법용량, 주의사항, 저장방법, 유효기간,큰제품이미지, 표시앞, 표시뒤, 의약품제형, 색상앞, 색상뒤, 분할선앞, 분할선뒤, 크기장축, 크기단축, 크기두께, 제형코드명 ' + 
-        'FROM pilltong_capstone.final_drug_full_info '+
-        'WHERE 1';
-        //Add to query if key has value
-        if(queryParams.itemNumber){
-            sql+= ' AND 품목일련번호 = ?';
-            values.push(queryParams.itemNumber);
-        }
-    }
+      res.send(drugList);
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 // When the client requests details of a specific drug
 app.get("/getItemDetail", async (req, res) => {
@@ -137,7 +120,9 @@ app.get("/getItemDetail", async (req, res) => {
     const values = [];
 
     let sql =
-      "SELECT * " + "FROM pilltong_capstone.drug_detail_view " + "WHERE 1";
+      "SELECT 품목일련번호, 품목명, 업체명, 전문일반, 성상, 원료성분, 효능효과, 용법용량, 주의사항, 저장방법, 유효기간,큰제품이미지, 표시앞, 표시뒤, 의약품제형, 색상앞, 색상뒤, 분할선앞, 분할선뒤, 크기장축, 크기단축, 크기두께, 제형코드명 " +
+      "FROM pilltong_capstone.final_drug_full_info " +
+      "WHERE 1";
     //Add to query if key has value
     if (queryParams.itemNumber) {
       sql += " AND 품목일련번호 = ?";
