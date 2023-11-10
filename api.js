@@ -62,20 +62,19 @@ const server = app.listen(PORT, () => {
 // When the client searches for a drug using its name
 app.get("/getItemList", async (req, res) => {
   try {
-    //store queryParams from a client
+    // Store queryParams from client
     const queryParams = req.query;
     const values = [];
+
+    // Throw error if itemName null or empty
+    if (!queryParams.itemName || queryParams.itemName == "")
+      throw new Error("품목명을 입력하세요.");
 
     let sql =
       "SELECT 품목일련번호, 품목명, 큰제품이미지, 업체명, 성상, 의약품제형 " +
       "FROM pills.final_drug_full_info " +
-      "WHERE 1";
-
-    //Add to query if key has value
-    if (queryParams.itemName) {
-      sql += " AND 품목명 like ?";
-      values.push("%" + queryParams.itemName + "%");
-    }
+      "WHERE 품목명 LIKE ?";
+    values.push(`%${queryParams.itemName}%`);
 
     // Connect to database
     let connection = mysql.createConnection(conn);
@@ -89,27 +88,26 @@ app.get("/getItemList", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(400).json({ error: error.message });
   }
 });
 
 // When the client requests details of a specific drug
 app.get("/getItemDetail", async (req, res) => {
   try {
-    //store queryParams from a client
+    // Store queryParams from client
     const queryParams = req.query;
     const values = [];
+
+    // Throw error if itemNumber null or empty
+    if (!queryParams.itemNumber || queryParams.itemNumber == "")
+      throw new Error("품목명을 입력하세요.");
 
     let sql =
       "SELECT 품목일련번호, 품목명, 업체명, 전문일반, 성상, 원료성분, 효능효과, 용법용량, 주의사항, 저장방법, 유효기간,큰제품이미지, 표시앞, 표시뒤, 의약품제형, 색상앞, 색상뒤, 분할선앞, 분할선뒤, 크기장축, 크기단축, 크기두께, 제형코드명 " +
       "FROM pills.final_drug_full_info " +
-      "WHERE 1";
-
-    //Add to query if key has value
-    if (queryParams.itemNumber) {
-      sql += " AND 품목일련번호 = ?";
-      values.push(queryParams.itemNumber);
-    }
+      "WHERE 품목일련번호 LIKE ?";
+    values.push(`%${queryParams.itemNumber}%`);
 
     // Connect to database
     let connection = mysql.createConnection(conn);
@@ -127,6 +125,6 @@ app.get("/getItemDetail", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.status(400).json({ error: error.message });
   }
 });
