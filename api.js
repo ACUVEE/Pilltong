@@ -6,12 +6,24 @@ const PDFParser = require("pdf-parse");
 const axios = require("axios");
 // Required for connecting mysql databases
 const mysql = require("mysql2");
+// Required for downloading PDFs without HTTPS auth
+const https = require("https");
 
 require("dotenv").config();
 
 // Host on local port 3001
 const app = express();
 const PORT = 3001;
+
+// Check environment vars
+const requiredEnvVars = ["DB_HOST", "DB_PORT", "DB_USER", "DB_PASS"];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`Missing required environment variable: ${envVar}`);
+    process.exit(1); // Exit the process if a required variable is missing
+  }
+}
 
 // Database connection info
 const conn = {
@@ -29,7 +41,10 @@ async function extractPDFContent(pdfUrl) {
     // Download PDF
     console.log("Downloading " + pdfUrl);
 
-    const response = await axios.get(pdfUrl, { responseType: "arraybuffer" });
+    const response = await axios.get(pdfUrl, {
+      responseType: "arraybuffer",
+      httpsAgent: new https.Agent({ rejectUnauthorized: false }),
+    });
     console.log("Successfully downloaded");
     const pdfBuffer = Buffer.from(response.data, "binary");
 
@@ -53,6 +68,20 @@ async function regenerateData(obj) {
 
   return obj;
 }
+
+// Global error handling middleware
+app.use(async (err, req, res, next) => {
+  console.error(err);
+  res
+    .status(500)
+    .json({ error: "Internal Server Error", details: err.message });
+});
+
+// Handle unhandled promise rejections
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  // Handle the error, log it, or throw an exception if necessary
+});
 
 // Start the server
 const server = app.listen(PORT, () => {
@@ -85,10 +114,15 @@ app.get("/getItemList", async (req, res) => {
       }
       let drugList = await JSON.stringify(results);
       res.send(drugList);
+
+      // Release database connection
+      connection.end();
     });
   } catch (error) {
-    console.error(error);
-    res.status(400).json({ error: error.message });
+    console.error(error.stack);
+    res
+      .status(500)
+      .json({ error: "Internal Server Error", details: error.message });
   }
 });
 
@@ -119,12 +153,15 @@ app.get("/getItemDetail", async (req, res) => {
 
       // Preprocess data
       drugDetail = await regenerateData(results[0]);
-      Promise.all([drugDetail]).then((value) => {
-        res.send(JSON.stringify(drugDetail));
-      });
+      res.send(JSON.stringify(drugDetail));
+
+      // Release database connection
+      connection.end();
     });
   } catch (error) {
-    console.error(error);
-    res.status(400).json({ error: error.message });
+    console.error(error.stack);
+    res
+      .status(500)
+      .json({ error: "Internal Server Error", details: error.message });
   }
 });
