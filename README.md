@@ -15,10 +15,9 @@ capstone project
     
   # .env
   
-  you need to create .env file for enviroment variable
+  you should create .env file for enviroment variable
     
       DB_HOST =
       DB_USER =
-      DB_PW ='
+      DB_PW =
 
-      
