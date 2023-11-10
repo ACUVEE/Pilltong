@@ -85,12 +85,12 @@ app.get('/getItemList', async(req,res) => {
         const values = [];
 
         let sql =
-        'SELECT A.품목일련번호,A.성상,A.품목명,A.업체명,B.의약품제형,B.큰제품이미지 ' + 
-        'FROM pilltong_capstone.drug_info AS A LEFT JOIN pilltong_capstone.drug_appearance_info AS B ON A.품목일련번호 = B.품목일련번호 '+
+        'SELECT * ' + 
+        'FROM pilltong_capstone.drug_brief_view '+
         'WHERE 1';
         //Add to query if key has value
         if(queryParams.itemName){
-            sql+= ' AND A.품목명 like ?';
+            sql+= ' AND 품목명 like ?';
             values.push('%'+queryParams.itemName+'%');
         }
 
@@ -131,12 +131,12 @@ app.get('/getItemDetail',async(req,res) => {
         const values = [];
 
         let sql = 
-        'SELECT A.품목일련번호,A.품목명,A.업체명,A.전문일반,A.성상,A.원료성분,A.효능효과,A.용법용량,A.주의사항,A.저장방법,A.유효기간,B.큰제품이미지,B.표시앞,B.표시뒤,B.의약품제형,B.색상앞,B.색상뒤,B.분할선앞,B.분할선뒤,B.크기장축,B.크기단축,B.크기두께,B.제형코드명 ' + 
-        'FROM pilltong_capstone.drug_info AS A LEFT JOIN pilltong_capstone.drug_appearance_info AS B ON A.품목일련번호 = B.품목일련번호 '+
+        'SELECT * ' + 
+        'FROM pilltong_capstone.drug_detail_view '+
         'WHERE 1';
         //Add to query if key has value
         if(queryParams.itemNumber){
-            sql+= ' AND A.품목일련번호 = ?';
+            sql+= ' AND 품목일련번호 = ?';
             values.push(queryParams.itemNumber);
         }
 
