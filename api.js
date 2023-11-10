@@ -25,6 +25,9 @@ const conn = {
 
 // download PDF file and Extaract content of PDF
 async function extractPDFContent(pdfUrl) {
+    if (pdfUrl == null){
+        return null;
+    }
     try {
         // download PDF
         console.log('downloading');
@@ -85,8 +88,8 @@ app.get('/getItemList', async(req,res) => {
         const values = [];
 
         let sql =
-        'SELECT * ' + 
-        'FROM pilltong_capstone.drug_brief_view '+
+        'SELECT 품목일련번호, 품목명, 큰제품이미지, 업체명, 성상, 의약품제형 ' + 
+        'FROM pilltong_capstone.final_drug_full_info '+
         'WHERE 1';
         //Add to query if key has value
         if(queryParams.itemName){
@@ -131,8 +134,8 @@ app.get('/getItemDetail',async(req,res) => {
         const values = [];
 
         let sql = 
-        'SELECT * ' + 
-        'FROM pilltong_capstone.drug_detail_view '+
+        'SELECT 품목일련번호, 품목명, 업체명, 전문일반, 성상, 원료성분, 효능효과, 용법용량, 주의사항, 저장방법, 유효기간,큰제품이미지, 표시앞, 표시뒤, 의약품제형, 색상앞, 색상뒤, 분할선앞, 분할선뒤, 크기장축, 크기단축, 크기두께, 제형코드명 ' + 
+        'FROM pilltong_capstone.final_drug_full_info '+
         'WHERE 1';
         //Add to query if key has value
         if(queryParams.itemNumber){
