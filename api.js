@@ -11,6 +11,9 @@ const https = require("https");
 
 require("dotenv").config();
 
+/*
+ *  ===== Server setup =====
+ */
 // Host on local port 3001
 const app = express();
 const PORT = 3001;
@@ -25,6 +28,20 @@ for (const envVar of requiredEnvVars) {
   }
 }
 
+// Global error handling middleware
+app.use(async (err, req, res, next) => {
+  console.error(err);
+  res
+    .status(500)
+    .json({ error: "Internal Server Error", details: err.message });
+});
+
+// Handle unhandled promise rejections
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  // Handle the error, log it, or throw an exception if necessary
+});
+
 // Database connection info
 const conn = {
   host: process.env.DB_HOST,
@@ -33,6 +50,14 @@ const conn = {
   password: process.env.DB_PASS,
 };
 
+// Start the server
+const server = app.listen(PORT, () => {
+  console.log("Start Server");
+});
+
+/*
+ *  ===== PDF downloading and processing =====
+ */
 // Download PDF file and extract contents
 async function extractPDFContent(pdfUrl) {
   if (pdfUrl == null) return null;
@@ -69,25 +94,9 @@ async function regenerateData(obj) {
   return obj;
 }
 
-// Global error handling middleware
-app.use(async (err, req, res, next) => {
-  console.error(err);
-  res
-    .status(500)
-    .json({ error: "Internal Server Error", details: err.message });
-});
-
-// Handle unhandled promise rejections
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
-  // Handle the error, log it, or throw an exception if necessary
-});
-
-// Start the server
-const server = app.listen(PORT, () => {
-  console.log("start Server");
-});
-
+/*
+ *  ===== GET requests =====
+ */
 // When the client searches for a drug using its name
 app.get("/getItemList", async (req, res) => {
   try {
