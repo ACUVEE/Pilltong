@@ -4,12 +4,40 @@ const {
   getDatabase,
   ref: rtdbRef,
   onChildAdded,
+  set,
 } = require("firebase/database");
-
 // Require axios to request Azure Custom Vision analysis
 const axios = require("axios");
+// Required for connecting mysql databases
+const mysql = require("mysql2");
 
 require("dotenv").config();
+
+// Check environment vars
+const requiredEnvVars = [
+  "DB_HOST",
+  "DB_PORT",
+  "DB_USER",
+  "DB_PASS",
+  "FIREBASE_API",
+  "AZURE_API_URL",
+  "AZURE_PREDICTION_KEY",
+];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`Missing required environment variable: ${envVar}`);
+    process.exit(1); // Exit the process if a required variable is missing
+  }
+}
+
+// Database connection info
+const conn = {
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+};
 
 // Configure Firebase
 const firebaseConfig = {
@@ -35,6 +63,7 @@ const ref = rtdbRef(db, "requests/");
 onChildAdded(ref, async (snapshot) => {
   // ID of added node
   const id = snapshot.key;
+  console.log("Request id: " + id);
 
   // Initialize a map to store cumulative probabilities for each tag name
   const tagRankMap = new Map();
@@ -50,7 +79,6 @@ onChildAdded(ref, async (snapshot) => {
       const predictions = analysis.data.predictions.slice(0, 10);
 
       // Output predictions
-      console.log("Predictions:");
       for (let prediction of predictions) {
         const tagName = prediction.tagName;
         const probability = prediction.probability;
@@ -84,6 +112,72 @@ onChildAdded(ref, async (snapshot) => {
     console.log(`    Total Probability: ${probabilitySum}`);
     console.log("----");
   }
+
+  // Get names for each tag name
+  // Connect to database
+  let connection = mysql.createConnection(conn);
+  connection.connect((err) => {
+    if (err) {
+      console.error("Error connecting to database:", err);
+      return;
+    }
+    console.log("Connected to database");
+  });
+
+  // Final result array
+  let resultObjects = [];
+  // Query promises array
+  let queryPromises = [];
+
+  for (let [tagName, probabilitySum] of sortedTagRank) {
+    const values = [];
+    let sql =
+      "SELECT dl_name, img_key, dl_material, di_class_no, chart " +
+      "FROM pills.integrated_data " +
+      "WHERE drug_N LIKE ?";
+    values.push(`%${tagName}%`);
+
+    const queryPromise = new Promise((resolve, reject) => {
+      connection.query(sql, values, (err, results) => {
+        if (err) {
+          console.log(err);
+          reject(err);
+        } else {
+          // Assuming the query returns an array of rows
+          for (let row of results) {
+            // Create an object for each row and add it to the resultObjects array
+            let resultObject = {
+              dl_name: row.dl_name,
+              img_key: row.img_key,
+              dl_material: row.dl_material,
+              di_class_no: row.di_class_no,
+              chart: row.chart,
+            };
+            resultObjects.push(resultObject);
+          }
+          resolve();
+        }
+      });
+    });
+
+    queryPromises.push(queryPromise);
+  }
+
+  // Release database connection after all queries complete
+  Promise.all(queryPromises)
+    .then(() => {
+      connection.end();
+
+      // Upload array to Firebase
+      const resultRef = rtdbRef(db, `/requests/${id}/results`);
+      set(resultRef, resultObjects);
+      console.log("Uploaded results");
+      console.log(JSON.stringify(resultObjects, null, 2));
+    })
+    .catch((error) => {
+      console.error("Error in one or more queries:", error);
+      connection.end();
+    });
 });
 
 // Send POST request to Azure Custom Vision
