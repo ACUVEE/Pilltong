@@ -113,7 +113,6 @@ onChildAdded(ref, async (snapshot) => {
     console.log("----");
   }
 
-  // Get names for each tag name
   // Connect to database
   let connection = mysql.createConnection(conn);
   connection.connect((err) => {
@@ -124,17 +123,16 @@ onChildAdded(ref, async (snapshot) => {
     console.log("Connected to database");
   });
 
-  // Final result array
-  let resultObjects = [];
   // Query promises array
   let queryPromises = [];
 
+  // Final result array containing drug names and descriptions
+  const finalResult = [];
+
+  // Query database to get names for each tag name
   for (let [tagName, probabilitySum] of sortedTagRank) {
     const values = [];
-    let sql =
-      "SELECT dl_name, img_key, dl_material, di_class_no, chart " +
-      "FROM pills.integrated_data " +
-      "WHERE drug_N LIKE ?";
+    let sql = "SELECT dl_name FROM pills.integrated_data WHERE drug_N LIKE ?";
     values.push(`%${tagName}%`);
 
     const queryPromise = new Promise((resolve, reject) => {
@@ -143,19 +141,43 @@ onChildAdded(ref, async (snapshot) => {
           console.log(err);
           reject(err);
         } else {
-          // Assuming the query returns an array of rows
-          for (let row of results) {
-            // Create an object for each row and add it to the resultObjects array
-            let resultObject = {
-              dl_name: row.dl_name,
-              img_key: row.img_key,
-              dl_material: row.dl_material,
-              di_class_no: row.di_class_no,
-              chart: row.chart,
-            };
-            resultObjects.push(resultObject);
-          }
-          resolve();
+          // Get name from result
+          let name = results[0].dl_name;
+
+          // Split with space / comma / parentheses
+          name = String(name).split(/[\s,()]+/)[0];
+
+          // Query again for details
+          const values = [];
+          let sql =
+            "SELECT 품목일련번호, 품목명, 큰제품이미지, 업체명, 성상, 의약품제형 " +
+            "FROM pills.final_drug_full_info " +
+            "WHERE 품목명 LIKE ?";
+          values.push(`%${name}%`);
+
+          console.log("Querying for pill " + name);
+
+          connection.query(sql, values, function (err, results) {
+            if (err) {
+              console.log(err);
+              reject(err); // Reject the promise in case of an error
+            }
+            for (let row of results) {
+              let resultObj = {
+                품목일련번호: row.품목일련번호,
+                품목명: row.품목명,
+                큰제품이미지: row.큰제품이미지,
+                업체명: row.업체명,
+                성상: row.성상,
+                의약품제형: row.의약품제형,
+              };
+              finalResult.push(resultObj);
+              // console.log(JSON.stringify(resultObj, null, 2));
+            }
+
+            // Resolve promise here, after the second query has completed
+            resolve();
+          });
         }
       });
     });
@@ -163,36 +185,38 @@ onChildAdded(ref, async (snapshot) => {
     queryPromises.push(queryPromise);
   }
 
-  // Release database connection after all queries complete
+  // Run when all queries have finished
   Promise.all(queryPromises)
     .then(() => {
+      // Release database connection after all queries complete
       connection.end();
 
       // Upload array to Firebase
       const resultRef = rtdbRef(db, `/requests/${id}/results`);
-      set(resultRef, resultObjects);
+      set(resultRef, finalResult);
+
       console.log("Uploaded results");
-      console.log(JSON.stringify(resultObjects, null, 2));
+      console.log(JSON.stringify(finalResult, null, 2));
     })
     .catch((error) => {
       console.error("Error in one or more queries:", error);
       connection.end();
     });
+
+  // Send POST request to Azure Custom Vision
+  async function getAnalysis(imageUrl) {
+    // Send Axios request (url, body, options)
+    const result = await axios.post(
+      process.env.AZURE_API_URL,
+      { Url: `${imageUrl}` },
+      {
+        headers: {
+          "Prediction-Key": process.env.AZURE_PREDICTION_KEY,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    return result;
+  }
 });
-
-// Send POST request to Azure Custom Vision
-async function getAnalysis(imageUrl) {
-  // Send Axios request (url, body, options)
-  const result = await axios.post(
-    process.env.AZURE_API_URL,
-    { Url: `${imageUrl}` },
-    {
-      headers: {
-        "Prediction-Key": process.env.AZURE_PREDICTION_KEY,
-        "Content-Type": "application/json",
-      },
-    }
-  );
-
-  return result;
-}
