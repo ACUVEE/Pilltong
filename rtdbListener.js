@@ -65,6 +65,15 @@ onChildAdded(ref, async (snapshot) => {
   const id = snapshot.key;
   console.log("Request id: " + id);
 
+  // Check if the 'results' node already exists under the current node
+  const resultsRef = rtdbRef(db, `requests/${id}/results`);
+  const resultsSnapshot = await resultsRef.get();
+
+  if (resultsSnapshot.exists()) {
+    console.log(`Results already exist for request id: ${id}`);
+    return; // Skip processing if results node already exists
+  }
+
   // Initialize a map to store cumulative probabilities for each tag name
   const tagRankMap = new Map();
 
