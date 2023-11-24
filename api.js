@@ -32,15 +32,21 @@ for (const envVar of requiredEnvVars) {
 // Global error handling middleware
 app.use(async (err, req, res, next) => {
   console.error(err);
-  res
-    .status(500)
-    .json({ error: "Internal Server Error", details: err.message });
+
+  // Check if response object is available
+  if (res) {
+    res
+      .status(500)
+      .json({ error: "Internal Server Error", details: err.message });
+  } else {
+    // If res is not defined, log the error
+    console.error("Response object is not defined:", err.message);
+  }
 });
 
 // Handle unhandled promise rejections
 process.on("unhandledRejection", (reason, promise) => {
   console.error("Unhandled Rejection at:", promise, "reason:", reason);
-  // Handle the error, log it, or throw an exception if necessary
 });
 
 // Database connection info
@@ -148,7 +154,7 @@ async function preprocessData(obj) {
 
     return [obj];
   } catch (error) {
-    console.console.log();
+    console.log();
     "Error data preprocessing:", error;
     throw error;
   }
@@ -188,7 +194,7 @@ app.get("/getItemList", async (req, res) => {
       connection.end();
     });
   } catch (error) {
-    next(error); // Pass the error to the error-handling middleware
+    throw error; // Pass the error to the error-handling middleware
   }
 });
 
@@ -217,17 +223,18 @@ app.get("/getItemDetail", async (req, res) => {
         throw err;
       }
       if (!results[0]) {
-        throw new Error("no results");
+        res.status(500).json({ error: "Internal Server Error" });
+      } else {
+        // Preprocess data
+        const drugDetail = await preprocessData(results[0]);
+
+        res.send(JSON.stringify(drugDetail));
+
+        // Release database connection
+        connection.end();
       }
-      // Preprocess data
-      const drugDetail = await preprocessData(results[0]);
-
-      res.send(JSON.stringify(drugDetail));
-
-      // Release database connection
-      connection.end();
     });
   } catch (error) {
-    next(error); // Pass the error to the error-handling middleware
+    throw error; // Pass the error to the error-handling middleware
   }
 });
