@@ -154,6 +154,7 @@ onChildAdded(ref, async (snapshot) => {
         } else {
           // Get name from result
           let name = results[0].dl_name;
+          let subImg = results[0].img_key;
 
           // Split with space / comma / parentheses
           name = String(name).split(/[\s,()]+/)[0];
@@ -180,7 +181,7 @@ onChildAdded(ref, async (snapshot) => {
                 let resultObj = {
                   품목일련번호: row.품목일련번호,
                   품목명: row.품목명,
-                  큰제품이미지: row.큰제품이미지,
+                  큰제품이미지: row.큰제품이미지 || subImg,
                   업체명: row.업체명,
                   성상: row.성상,
                   의약품제형: row.의약품제형,
