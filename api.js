@@ -87,7 +87,7 @@ async function downloadPdfContent(pdfUrl) {
 
 // Read local PDFfile's contents
 async function readPdf(itemNumber, type) {
-  const PDFpath = `../pdf_fetch/pdf/${itemNumber}-${type}.pdf`;
+  const PDFpath = `./pdf/${itemNumber}-${type}.pdf`;
   try {
     const dataBuffer = await fs.readFile(PDFpath);
     const data = await PDFParser(dataBuffer);
