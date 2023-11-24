@@ -132,7 +132,8 @@ onChildAdded(ref, async (snapshot) => {
   // Query database to get names for each tag name
   for (let [tagName, probabilitySum] of sortedTagRank) {
     const values = [];
-    let sql = "SELECT dl_name FROM pills.integrated_data WHERE drug_N LIKE ?";
+    let sql =
+      "SELECT dl_name, img_key FROM pills.integrated_data WHERE drug_N LIKE ?";
     values.push(`%${tagName}%`);
 
     const queryPromise = new Promise((resolve, reject) => {
@@ -143,7 +144,7 @@ onChildAdded(ref, async (snapshot) => {
         } else {
           // Get name from result
           let name = results[0].dl_name;
-
+          let img_key = results[0].img_key;
           // Split with space / comma / parentheses
           name = String(name).split(/[\s,()]+/)[0];
 
@@ -171,6 +172,9 @@ onChildAdded(ref, async (snapshot) => {
                 성상: row.성상,
                 의약품제형: row.의약품제형,
               };
+              if (resultObj.큰제품이미지 == null) {
+                resultObj.큰제품이미지 = img_key;
+              }
               finalResult.push(resultObj);
               // console.log(JSON.stringify(resultObj, null, 2));
             }

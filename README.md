@@ -1,4 +1,5 @@
 # Pilltong
+
 capstone project
 
 #MODULES
@@ -12,12 +13,11 @@ capstone project
     mysql2
     pdf-parse
     uuid
-    
-  # .env
-  
-  you should create .env file for enviroment variable
-    
+
+# .env
+
+you should create .env file for enviroment variable
+
       DB_HOST =
       DB_USER =
       DB_PW =
-
