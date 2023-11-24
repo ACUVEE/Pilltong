@@ -154,8 +154,8 @@ onChildAdded(ref, async (snapshot) => {
           // Get name from result
           let name = results[0].dl_name;
 
-          // Split with space / comma / parentheses
-          name = String(name).split(/[\s,()]+/)[0];
+          // Split with space, comma, parentheses, or numbers
+          name = String(name).split(/[\s,()\d]+/)[0];
 
           // Query again for details
           const values = [];
