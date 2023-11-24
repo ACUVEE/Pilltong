@@ -146,6 +146,10 @@ onChildAdded(ref, async (snapshot) => {
         if (err) {
           console.log(err);
           reject(err);
+        }
+        // Skip this query if there is no data
+        else if (!results || results.length <= 0) {
+          resolve();
         } else {
           // Get name from result
           let name = results[0].dl_name;
@@ -167,22 +171,26 @@ onChildAdded(ref, async (snapshot) => {
             if (err) {
               console.log(err);
               reject(err); // Reject the promise in case of an error
-            }
-            for (let row of results) {
-              let resultObj = {
-                품목일련번호: row.품목일련번호,
-                품목명: row.품목명,
-                큰제품이미지: row.큰제품이미지,
-                업체명: row.업체명,
-                성상: row.성상,
-                의약품제형: row.의약품제형,
-              };
-              finalResult.push(resultObj);
-              // console.log(JSON.stringify(resultObj, null, 2));
-            }
+            } // Skip this query if there is no data
+            else if (!results || results.length <= 0) {
+              resolve();
+            } else {
+              for (let row of results) {
+                let resultObj = {
+                  품목일련번호: row.품목일련번호,
+                  품목명: row.품목명,
+                  큰제품이미지: row.큰제품이미지,
+                  업체명: row.업체명,
+                  성상: row.성상,
+                  의약품제형: row.의약품제형,
+                };
+                finalResult.push(resultObj);
+                // console.log(JSON.stringify(resultObj, null, 2));
+              }
 
-            // Resolve promise here, after the second query has completed
-            resolve();
+              // Resolve promise here, after the second query has completed
+              resolve();
+            }
           });
         }
       });
