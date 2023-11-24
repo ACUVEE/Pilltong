@@ -65,6 +65,12 @@ onChildAdded(ref, async (snapshot) => {
   const id = snapshot.key;
   console.log("Request id: " + id);
 
+  // Skip processing if already analyzed
+  if (snapshot.hasChild("results")) {
+    console.log(`Results already exist for request id: ${id}`);
+    return;
+  }
+
   // Initialize a map to store cumulative probabilities for each tag name
   const tagRankMap = new Map();
 
@@ -141,10 +147,14 @@ onChildAdded(ref, async (snapshot) => {
         if (err) {
           console.log(err);
           reject(err);
+        }
+        // Skip this query if there is no data
+        else if (!results || results.length <= 0) {
+          resolve();
         } else {
           // Get name from result
           let name = results[0].dl_name;
-          let img_key = results[0].img_key;
+
           // Split with space / comma / parentheses
           name = String(name).split(/[\s,()]+/)[0];
 
@@ -162,25 +172,26 @@ onChildAdded(ref, async (snapshot) => {
             if (err) {
               console.log(err);
               reject(err); // Reject the promise in case of an error
-            }
-            for (let row of results) {
-              let resultObj = {
-                품목일련번호: row.품목일련번호,
-                품목명: row.품목명,
-                큰제품이미지: row.큰제품이미지,
-                업체명: row.업체명,
-                성상: row.성상,
-                의약품제형: row.의약품제형,
-              };
-              if (resultObj.큰제품이미지 == null) {
-                resultObj.큰제품이미지 = img_key;
+            } // Skip this query if there is no data
+            else if (!results || results.length <= 0) {
+              resolve();
+            } else {
+              for (let row of results) {
+                let resultObj = {
+                  품목일련번호: row.품목일련번호,
+                  품목명: row.품목명,
+                  큰제품이미지: row.큰제품이미지,
+                  업체명: row.업체명,
+                  성상: row.성상,
+                  의약품제형: row.의약품제형,
+                };
+                finalResult.push(resultObj);
+                // console.log(JSON.stringify(resultObj, null, 2));
               }
-              finalResult.push(resultObj);
-              // console.log(JSON.stringify(resultObj, null, 2));
-            }
 
-            // Resolve promise here, after the second query has completed
-            resolve();
+              // Resolve promise here, after the second query has completed
+              resolve();
+            }
           });
         }
       });
