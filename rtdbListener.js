@@ -108,7 +108,7 @@ onChildAdded(ref, async (snapshot) => {
         await cropImage(
           imagePath,
           boundingBox,
-          0.15,
+          0.1,
           path.join(__dirname, "requests", id, "cropped")
         );
       })
@@ -344,11 +344,22 @@ async function downloadImage(imageUrl, localFolderPath, fileName) {
  * @returns {Promise<void>} - A promise that resolves once the cropping is complete.
  */
 async function cropImage(imagePath, boundingBox, margin, outputDir) {
-  // Calculate margin
+  // Get the dimensions (width and height) of the original image
+  const { width: originalWidth, height: originalHeight } = await sharp(
+    imagePath
+  ).metadata();
+
+  // Calculate percentages with margin
   const left = boundingBox.left - margin;
   const top = boundingBox.top - margin;
   const width = boundingBox.width + 2 * margin;
   const height = boundingBox.height + 2 * margin;
+
+  // Calculate pixel values based on percentages
+  const leftPx = Math.floor(left * originalWidth);
+  const topPx = Math.floor(top * originalHeight);
+  const widthPx = Math.floor(width * originalWidth);
+  const heightPx = Math.floor(height * originalHeight);
 
   // Create the output directory if it doesn't exist
   if (!fs.existsSync(outputDir)) {
@@ -364,10 +375,10 @@ async function cropImage(imagePath, boundingBox, margin, outputDir) {
   // Perform the crop using sharp
   await sharp(imagePath)
     .extract({
-      left: Math.floor(left * 100) + "%",
-      top: Math.floor(top * 100) + "%",
-      width: Math.floor(width * 100) + "%",
-      height: Math.floor(height * 100) + "%",
+      left: leftPx,
+      top: topPx,
+      width: widthPx,
+      height: heightPx,
     })
     .toFile(outputImagePath);
 
@@ -395,7 +406,7 @@ async function getBoundingBox(imageData) {
 
   console.log(JSON.stringify(response.data.predictions[0], null, 2));
 
-  return response.data.predictions[0];
+  return response.data.predictions[0].boundingBox;
 }
 
 /**
