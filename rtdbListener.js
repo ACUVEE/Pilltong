@@ -117,6 +117,50 @@ onChildAdded(ref, async (snapshot) => {
     console.error("Error processing images:", error);
   }
 
+  // Analyze each cropped image
+  const croppedImagesDir = path.join(__dirname, "requests", id, "cropped");
+  const croppedImagePaths = fs
+    .readdirSync(croppedImagesDir)
+    .map((fileName) => path.join(croppedImagesDir, fileName));
+
+  // Run getAnalysis for each cropped image in parallel
+  const analysisPromises = croppedImagePaths.map(async (imagePath) => {
+    try {
+      const analysis = await getAnalysis(fs.readFileSync(imagePath));
+      return analysis;
+    } catch (error) {
+      console.error(`Error analyzing image ${imagePath}:`, error);
+      return null;
+    }
+  });
+
+  // Wait for all analysis promises to finish
+  const analyses = await Promise.all(analysisPromises);
+
+  // Process the analyses
+  for (const result of analyses) {
+    if (result) {
+      console.log("Result");
+      console.log(JSON.stringify(result, null, 2));
+
+      // Get top 10 predictions
+      const predictions = result.predictions.slice(0, 10);
+
+      // Output predictions
+      for (let p of predictions) {
+        const tagName = p.tagName;
+        const probability = p.probability;
+
+        // Accumulate probabilities in map
+        if (tagRankMap.has(tagName)) {
+          tagRankMap.set(tagName, tagRankMap.get(tagName) + probability);
+        } else {
+          tagRankMap.set(tagName, probability);
+        }
+      }
+    }
+  }
+
   /*
   // Analyze each image
   for (let i = 0; i < images.length; i++) {
@@ -393,7 +437,7 @@ const headers = {
 
 /**
  * Finds a bounding box for each pill
- * @param {string} imageData - Image URL to find a bounding box.
+ * @param {string} imageData - Image to find a bounding box.
  * @returns - A boundingBox object, with the properties "left" "right" "width" "height"
  */
 async function getBoundingBox(imageData) {
@@ -411,7 +455,7 @@ async function getBoundingBox(imageData) {
 
 /**
  * Analyzes each pill to identify it.
- * @param {string} imageData - Image URL to analyze which pill it is.
+ * @param {string} imageData - Image to analyze which pill it is.
  * @returns - An object with pill K-codes and corresponding probability (highest to lowest).
  */
 async function getAnalysis(imageData) {
