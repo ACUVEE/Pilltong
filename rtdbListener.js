@@ -91,17 +91,44 @@ onChildAdded(ref, async (snapshot) => {
     fs.mkdirSync(localFolderPath, { recursive: true });
   }
 
+  try {
+    // Download all images in parallel
+    const downloadedImagePaths = await downloadAllImages(
+      images,
+      localFolderPath
+    );
+
+    // Process each downloaded image concurrently
+    await Promise.all(
+      downloadedImagePaths.map(async (imagePath) => {
+        // Get bounding box for each image
+        const boundingBox = await getBoundingBox(fs.readFileSync(imagePath));
+
+        // Crop each image based on the bounding box
+        await cropImage(
+          imagePath,
+          boundingBox,
+          0.15,
+          path.join(__dirname, "requests", id, "cropped")
+        );
+      })
+    );
+  } catch (error) {
+    console.error("Error processing images:", error);
+  }
+
+  /*
   // Analyze each image
   for (let i = 0; i < images.length; i++) {
     let image = images[i];
+  }
 
     try {
-      /*
       // Azure Custom Vision analysis
       let analysis = await getAnalysis(image);
 
       // Get top 10 predictions
-      const predictions = analysis.data.predictions.slice(0, 10);
+      const predictions = analysis.predictions.slice(0, 10);
 
       // Output predictions
       for (let prediction of predictions) {
@@ -120,12 +147,10 @@ onChildAdded(ref, async (snapshot) => {
         // Initialize with current probability if not in map
         else tagRankMap.set(tagName, probability);
       }
-      */
     } catch (error) {
       console.error("Error:", error);
     }
   }
-  /*
   // Sort the map by total probabilities in descending order
   const sortedTagRank = Array.from(tagRankMap.entries())
     .sort((a, b) => b[1] - a[1])
@@ -352,39 +377,39 @@ async function cropImage(imagePath, boundingBox, margin, outputDir) {
 // Send POST request to Azure Custom Vision
 const headers = {
   "Prediction-Key": process.env.AZURE_PREDICTION_KEY,
-  "Content-Type": "application/json",
+  "Content-Type": "application/octet-stream",
 };
 
 /**
  * Finds a bounding box for each pill
- * @param {string} imageUrl - Image URL to find a bounding box.
+ * @param {string} imageData - Image URL to find a bounding box.
  * @returns - A boundingBox object, with the properties "left" "right" "width" "height"
  */
-async function getBoundingBox(imageUrl) {
+async function getBoundingBox(imageData) {
   // Send Axios request (url, body, options)
-  const result = await axios.post(
+  const response = await axios.post(
     process.env.AZURE_BOUNDINGBOX_API_URL,
-    { Url: `${imageUrl}` },
+    imageData,
     { headers: headers }
   );
 
-  console.log(JSON.stringify(result.data.predictions[0], null, 2));
+  console.log(JSON.stringify(response.data.predictions[0], null, 2));
 
-  return result.data.predictions[0];
+  return response.data.predictions[0];
 }
 
 /**
  * Analyzes each pill to identify it.
- * @param {string} imageUrl - Image URL to analyze which pill it is.
+ * @param {string} imageData - Image URL to analyze which pill it is.
  * @returns - An object with pill K-codes and corresponding probability (highest to lowest).
  */
-async function getAnalysis(imageUrl) {
+async function getAnalysis(imageData) {
   // Send Axios request (url, body, options)
-  const result = await axios.post(
+  const response = await axios.post(
     process.env.AZURE_ANALYSIS_API_URL,
-    { Url: `${imageUrl}` },
+    imageData,
     { headers: headers }
   );
 
-  return result;
+  return response.data;
 }
