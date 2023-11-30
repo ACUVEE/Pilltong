@@ -10,6 +10,11 @@ const {
 const axios = require("axios");
 // Required for connecting mysql databases
 const mysql = require("mysql2");
+// Required for downloading images
+const fs = require("fs");
+const path = require("path");
+const stream = require("stream");
+const sharp = require("sharp");
 
 require("dotenv").config();
 
@@ -20,7 +25,8 @@ const requiredEnvVars = [
   "DB_USER",
   "DB_PASS",
   "FIREBASE_API",
-  "AZURE_API_URL",
+  "AZURE_BOUNDINGBOX_API_URL",
+  "AZURE_ANALYSIS_API_URL",
   "AZURE_PREDICTION_KEY",
 ];
 
@@ -77,11 +83,24 @@ onChildAdded(ref, async (snapshot) => {
   // Get images array
   const images = snapshot.val().images;
 
+  // Store images under 'requests/${id}/original' in current directory
+  const localFolderPath = path.join(__dirname, "requests", id, "original");
+
+  // Create the local folder if it doesn't exist
+  if (!fs.existsSync(localFolderPath)) {
+    fs.mkdirSync(localFolderPath, { recursive: true });
+  }
+
   // Analyze each image
-  for (let image of images) {
-    // Call Azure Custom Vision API
+  for (let i = 0; i < images.length; i++) {
+    let image = images[i];
+
     try {
+      /*
+      // Azure Custom Vision analysis
       let analysis = await getAnalysis(image);
+
+      // Get top 10 predictions
       const predictions = analysis.data.predictions.slice(0, 10);
 
       // Output predictions
@@ -89,11 +108,11 @@ onChildAdded(ref, async (snapshot) => {
         const tagName = prediction.tagName;
         const probability = prediction.probability;
 
-        /*
-            console.log(`    Tag Name: ${tagName}`);
-            console.log(`    Probability: ${probability}`);
-            console.log("----");
-        */
+
+            // console.log(`    Tag Name: ${tagName}`);
+            // console.log(`    Probability: ${probability}`);
+            // console.log("----");
+
 
         // Accumulate probabilities in map
         if (tagRankMap.has(tagName))
@@ -101,11 +120,12 @@ onChildAdded(ref, async (snapshot) => {
         // Initialize with current probability if not in map
         else tagRankMap.set(tagName, probability);
       }
+      */
     } catch (error) {
       console.error("Error:", error);
     }
   }
-
+  /*
   // Sort the map by total probabilities in descending order
   const sortedTagRank = Array.from(tagRankMap.entries())
     .sort((a, b) => b[1] - a[1])
@@ -133,11 +153,11 @@ onChildAdded(ref, async (snapshot) => {
   let queryPromises = [];
 
   // Final result array containing drug names and descriptions
-  const finalResult = [];
+  let finalResult = [];
 
   // Query database to get names for each tag name
   for (let [tagName, probabilitySum] of sortedTagRank) {
-    const values = [];
+    let values = [];
     let sql =
       "SELECT dl_name, img_key FROM pills.integrated_data WHERE drug_N LIKE ?";
     values.push(`%${tagName}%`);
@@ -218,21 +238,153 @@ onChildAdded(ref, async (snapshot) => {
       console.error("Error in one or more queries:", error);
       connection.end();
     });
-
-  // Send POST request to Azure Custom Vision
-  async function getAnalysis(imageUrl) {
-    // Send Axios request (url, body, options)
-    const result = await axios.post(
-      process.env.AZURE_API_URL,
-      { Url: `${imageUrl}` },
-      {
-        headers: {
-          "Prediction-Key": process.env.AZURE_PREDICTION_KEY,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    return result;
-  }
+    */
 });
+
+/**
+ * Downloads and saves multiple images from an array of URLs asynchronously.
+ * @param {Array<string>} imageUrls - Array of image URLs.
+ * @param {string} localFolderPath - Path of folder to save images to.
+ * @returns {Promise<string[]>} - A promise that resolves with an array of downloaded image paths.
+ */
+async function downloadAllImages(imageUrls, localFolderPath) {
+  const downloadedImagePaths = [];
+
+  // Use Promise all to download images concurrently
+  await Promise.all(
+    imageUrls.map(async (imageUrl, index) => {
+      const fileName = `image_${index + 1}.jpg`;
+
+      try {
+        const downloadedImagePath = await downloadImage(
+          imageUrl,
+          localFolderPath,
+          fileName
+        );
+        downloadedImagePaths.push(downloadedImagePath);
+        console.log(
+          `Image ${index + 1} downloaded and saved at: ${downloadedImagePath}`
+        );
+      } catch (error) {
+        console.error(`Error downloading image ${index + 1}:`, error);
+      }
+    })
+  );
+
+  return downloadedImagePaths;
+}
+
+/**
+ *
+ * @param {string} imageUrl - Image URL to download from.
+ * @param {string} localFolderPath - Path to save the image to.
+ * @param {string} fileName - Name of the saved file.
+ * @returns {Promise<string>} - A promise that resolves with the path to the downloaded image.
+ */
+async function downloadImage(imageUrl, localFolderPath, fileName) {
+  const response = await axios({
+    url: imageUrl,
+    method: "GET",
+    responseType: "stream",
+  });
+
+  const imagePath = path.join(localFolderPath, fileName);
+
+  return new Promise((resolve, reject) => {
+    const writer = fs.createWriteStream(imagePath);
+    response.data.pipe(writer);
+
+    writer.on("finish", () => {
+      stream.finished(writer, (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(imagePath);
+        }
+      });
+    });
+
+    writer.on("error", (err) => {
+      reject(err);
+    });
+  });
+}
+
+/**
+ * Crop an image based on the provided bounding box and margin.
+ * @param {string} imagePath - Path to the original image.
+ * @param {object} boundingBox - An object with bounding box coordinates and dimensions.
+ * @param {number} margin - Margin to expand the bounding box.
+ * @param {string} outputDir - Directory to save the cropped image.
+ * @returns {Promise<void>} - A promise that resolves once the cropping is complete.
+ */
+async function cropImage(imagePath, boundingBox, margin, outputDir) {
+  // Calculate margin
+  const left = boundingBox.left - margin;
+  const top = boundingBox.top - margin;
+  const width = boundingBox.width + 2 * margin;
+  const height = boundingBox.height + 2 * margin;
+
+  // Create the output directory if it doesn't exist
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  // Construct the output path for the cropped image
+  const outputImagePath = path.join(
+    outputDir,
+    path.basename(imagePath).replace(".jpg", "_cropped.jpg")
+  );
+
+  // Perform the crop using sharp
+  await sharp(imagePath)
+    .extract({
+      left: Math.floor(left * 100) + "%",
+      top: Math.floor(top * 100) + "%",
+      width: Math.floor(width * 100) + "%",
+      height: Math.floor(height * 100) + "%",
+    })
+    .toFile(outputImagePath);
+
+  console.log(`Image cropped and saved to ${outputImagePath}`);
+}
+
+// Send POST request to Azure Custom Vision
+const headers = {
+  "Prediction-Key": process.env.AZURE_PREDICTION_KEY,
+  "Content-Type": "application/json",
+};
+
+/**
+ * Finds a bounding box for each pill
+ * @param {string} imageUrl - Image URL to find a bounding box.
+ * @returns - A boundingBox object, with the properties "left" "right" "width" "height"
+ */
+async function getBoundingBox(imageUrl) {
+  // Send Axios request (url, body, options)
+  const result = await axios.post(
+    process.env.AZURE_BOUNDINGBOX_API_URL,
+    { Url: `${imageUrl}` },
+    { headers: headers }
+  );
+
+  console.log(JSON.stringify(result.data.predictions[0], null, 2));
+
+  return result.data.predictions[0];
+}
+
+/**
+ * Analyzes each pill to identify it.
+ * @param {string} imageUrl - Image URL to analyze which pill it is.
+ * @returns - An object with pill K-codes and corresponding probability (highest to lowest).
+ */
+async function getAnalysis(imageUrl) {
+  // Send Axios request (url, body, options)
+  const result = await axios.post(
+    process.env.AZURE_ANALYSIS_API_URL,
+    { Url: `${imageUrl}` },
+    { headers: headers }
+  );
+
+  return result;
+}
