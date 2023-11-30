@@ -137,10 +137,10 @@ onChildAdded(ref, async (snapshot) => {
   // Wait for all analysis promises to finish
   const analyses = await Promise.all(analysisPromises);
 
-  // Process the analyses
+  // Process the results
   for (const result of analyses) {
     if (result) {
-      console.log("Result");
+      console.log("Analysis Result");
       console.log(JSON.stringify(result, null, 2));
 
       // Get top 10 predictions
@@ -150,6 +150,10 @@ onChildAdded(ref, async (snapshot) => {
       for (let p of predictions) {
         const tagName = p.tagName;
         const probability = p.probability;
+
+        console.log(`    Tag Name: ${tagName}`);
+        console.log(`    Probability: ${probability}`);
+        console.log("----");
 
         // Accumulate probabilities in map
         if (tagRankMap.has(tagName)) {
@@ -161,40 +165,6 @@ onChildAdded(ref, async (snapshot) => {
     }
   }
 
-  /*
-  // Analyze each image
-  for (let i = 0; i < images.length; i++) {
-    let image = images[i];
-  }
-
-    try {
-      // Azure Custom Vision analysis
-      let analysis = await getAnalysis(image);
-
-      // Get top 10 predictions
-      const predictions = analysis.predictions.slice(0, 10);
-
-      // Output predictions
-      for (let prediction of predictions) {
-        const tagName = prediction.tagName;
-        const probability = prediction.probability;
-
-
-            // console.log(`    Tag Name: ${tagName}`);
-            // console.log(`    Probability: ${probability}`);
-            // console.log("----");
-
-
-        // Accumulate probabilities in map
-        if (tagRankMap.has(tagName))
-          tagRankMap.set(tagName, tagRankMap.get(tagName) + probability);
-        // Initialize with current probability if not in map
-        else tagRankMap.set(tagName, probability);
-      }
-    } catch (error) {
-      console.error("Error:", error);
-    }
-  }
   // Sort the map by total probabilities in descending order
   const sortedTagRank = Array.from(tagRankMap.entries())
     .sort((a, b) => b[1] - a[1])
@@ -307,7 +277,6 @@ onChildAdded(ref, async (snapshot) => {
       console.error("Error in one or more queries:", error);
       connection.end();
     });
-    */
 });
 
 /**
@@ -429,7 +398,7 @@ async function cropImage(imagePath, boundingBox, margin, outputDir) {
   console.log(`Image cropped and saved to ${outputImagePath}`);
 }
 
-// Send POST request to Azure Custom Vision
+// Header for POST request to Azure Custom Vision
 const headers = {
   "Prediction-Key": process.env.AZURE_PREDICTION_KEY,
   "Content-Type": "application/octet-stream",
