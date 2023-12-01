@@ -362,11 +362,19 @@ async function cropImage(imagePath, boundingBox, margin, outputDir) {
     imagePath
   ).metadata();
 
-  // Calculate percentages with margin
-  const left = boundingBox.left - margin;
-  const top = boundingBox.top - margin;
-  const width = boundingBox.width + 2 * margin;
-  const height = boundingBox.height + 2 * margin;
+  // Calculate percentages, taking margin into account
+  // Ensure percentages are 0 or above
+  let left = Math.max(0, boundingBox.left - margin);
+  let top = Math.max(0, boundingBox.top - margin);
+  let width = Math.max(0, boundingBox.width + 2 * margin);
+  let height = Math.max(0, boundingBox.height + 2 * margin);
+
+  // Ensure percentages are 1 or lower
+  left = Math.min(1, left);
+  top = Math.min(1, top);
+  // Ensure box does not go out of image bounds
+  width = Math.min(1 - left, width);
+  height = Math.min(1 - top, height);
 
   // Calculate pixel values based on percentages
   const leftPx = Math.floor(left * originalWidth);
