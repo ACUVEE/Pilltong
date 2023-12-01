@@ -140,8 +140,8 @@ onChildAdded(ref, async (snapshot) => {
   // Process the results
   for (const result of analyses) {
     if (result) {
-      console.log("Analysis Result");
-      console.log(JSON.stringify(result, null, 2));
+      // console.log("Analysis Result");
+      // console.log(JSON.stringify(result, null, 2));
 
       // Get top 10 predictions
       const predictions = result.predictions.slice(0, 10);
@@ -151,9 +151,9 @@ onChildAdded(ref, async (snapshot) => {
         const tagName = p.tagName;
         const probability = p.probability;
 
-        console.log(`    Tag Name: ${tagName}`);
-        console.log(`    Probability: ${probability}`);
-        console.log("----");
+        // console.log(`    Tag Name: ${tagName}`);
+        // console.log(`    Probability: ${probability}`);
+        // console.log("----");
 
         // Accumulate probabilities in map
         if (tagRankMap.has(tagName)) {
@@ -165,7 +165,7 @@ onChildAdded(ref, async (snapshot) => {
     }
   }
 
-  // Sort the map by total probabilities in descending order
+  // Sort map by total probabilities (descending) and get top 5 predictions
   const sortedTagRank = Array.from(tagRankMap.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
@@ -249,7 +249,7 @@ onChildAdded(ref, async (snapshot) => {
                 // console.log(JSON.stringify(resultObj, null, 2));
               }
 
-              // Resolve promise here, after the second query has completed
+              // Resolve promise after the second query has completed
               resolve();
             }
           });
