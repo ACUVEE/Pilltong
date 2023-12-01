@@ -103,12 +103,13 @@ onChildAdded(ref, async (snapshot) => {
       downloadedImagePaths.map(async (imagePath) => {
         // Get bounding box for each image
         const boundingBox = await getBoundingBox(fs.readFileSync(imagePath));
+        const boundingBoxMargin = 0.075;
 
         // Crop each image based on the bounding box
         await cropImage(
           imagePath,
           boundingBox,
-          0.1,
+          boundingBoxMargin,
           path.join(__dirname, "requests", id, "cropped")
         );
       })
