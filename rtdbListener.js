@@ -86,10 +86,13 @@ onChildAdded(ref, async (snapshot) => {
   // Store images under 'requests/${id}/original' in current directory
   const localFolderPath = path.join(__dirname, "requests", id, "original");
 
-  // Create the local folder if it doesn't exist
-  if (!fs.existsSync(localFolderPath)) {
-    fs.mkdirSync(localFolderPath, { recursive: true });
+  // Delete the local folder if it already exists
+  if (fs.existsSync(localFolderPath)) {
+    deleteFolderRecursive(localFolderPath);
   }
+
+  // Create the local folder
+  fs.mkdirSync(localFolderPath, { recursive: true });
 
   try {
     // Download all images in parallel
@@ -314,7 +317,7 @@ async function downloadAllImages(imageUrls, localFolderPath) {
 }
 
 /**
- *
+ * Downloads a single image file from the provided URL.
  * @param {string} imageUrl - Image URL to download from.
  * @param {string} localFolderPath - Path to save the image to.
  * @param {string} fileName - Name of the saved file.
