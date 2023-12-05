@@ -88,7 +88,7 @@ onChildAdded(ref, async (snapshot) => {
 
   // Delete the local folder if it already exists
   if (fs.existsSync(localFolderPath)) {
-    deleteFolderRecursive(localFolderPath);
+    fs.rmSync(localFolderPath, { recursive: true, force: true });
   }
 
   // Create the local folder
